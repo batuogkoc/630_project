@@ -3,7 +3,7 @@ bandpass_data = data_2_band_pass(1000, 16);
 
 % plot_Hs()
 % x = cos(linspace(0, 150*2*pi, 1000)) + cos(linspace(0, 350*2*pi, 1000));
-x = bandpass_data;
+% x = bandpass_data;
 x = rand_data;
 h_0 = generate_h_coeffs();
 h_1 = h_0.*(((-1).^(1:length(h_0)))*-1);
@@ -23,25 +23,20 @@ function sanity_check(x, h0, h1, f0, f1)
     v0 = downsample(apply_system(x, h0), 2);
 
 
-%     v00 = downsample(apply_system(v0, h0), 2);
-%     v01 = downsample(apply_system(v0, h1), 2);
+    v00 = downsample(apply_system(v0, h0), 2);
+    v01 = downsample(apply_system(v0, h1), 2);
 
     v1 = downsample(apply_system(x, h1), 2);
     
-    
-%     hold on
-% %     plot(abs(fft(x, N)), DisplayName="x")
-%     plot(abs(fft(apply_system(x, h1), N)), DisplayName="x high")
-%     plot(abs(fft(apply_system(upsample(downsample(apply_system(x, h1), 2), 2), -h1), N)), DisplayName="x low decimated")
-%     legend
-%     hold off
 
-%     u0 = (apply_system(upsample(v00, 2), f0) + apply_system(upsample(v01, 2), f1))*2;
-    x_hat = (apply_system(upsample(v0, 2), f0) + apply_system(upsample(v1, 2), f1))*2;
+
+    u0 = (apply_system(upsample(v00, 2), f0) + apply_system(upsample(v01, 2), f1))*2;
+    x_hat = (apply_system(upsample(u0, 2), f0) + apply_system(upsample(v1, 2), f1))*2;
     
     plot(log(abs(fft(x, N))), DisplayName="x low")
     plot(log(abs(fft(x_hat, N))), DisplayName="x high")
-
+   
+    mse(x, x_hat)
 
     hold off
 end
