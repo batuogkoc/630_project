@@ -1,19 +1,27 @@
+import tools.mean_squared_error
+
 rand_data = data_1_random(1000, 16);
 bandpass_data = data_2_band_pass(1000, 16);
 
-% plot_Hs()
-% x = cos(linspace(0, 150*2*pi, 1000)) + cos(linspace(0, 350*2*pi, 1000));
-% x = bandpass_data;
-x = rand_data;
+x = bandpass_data;
+% x = rand_data;
 h_0 = generate_h_coeffs();
 h_1 = h_0.*(((-1).^(1:length(h_0)))*-1);
 
 f_0 = h_0;
-f_1 = -h_1;
+f_1 = h_1;
 
-
-sanity_check(x, h_0, h_1, f_0, f_1)
 % plot_Hs()
+% sanity_check(x, h_0, h_1, f_0, f_1)
+x_hat = analysis_synthesis(x, h_0, h_1, f_0, f_1);
+
+N = length(x);
+hold on
+plot(log(abs(fft(x, N))), DisplayName="x")
+plot(log(abs(fft(x_hat, N))), DisplayName="x hat")
+mean_squared_error(x, x_hat)
+legend 
+hold off
 
 function sanity_check(x, h0, h1, f0, f1)
     hold on
@@ -36,9 +44,14 @@ function sanity_check(x, h0, h1, f0, f1)
     plot(log(abs(fft(x, N))), DisplayName="x low")
     plot(log(abs(fft(x_hat, N))), DisplayName="x high")
    
-    mse(x, x_hat)
+    mean_squared_error(x, x_hat)
 
     hold off
+end
+
+function x_hat = analysis_synthesis(x, h0, h1, f0, f1)
+    [V0, V1, V2, V3] = analysis(x, h0, h1);
+    x_hat = synthesis(V0, V1, V2, V3, f0, f1);
 end
 
 function [V0, V1, V2, V3] = analysis(x, h_0, h_1)
@@ -64,10 +77,13 @@ function x_hat = synthesis(V0, V1, V2, V3, f_0, f_1)
     u1 = V3;
 
     u00 = apply_system(upsample(u000, 2), f_0) + apply_system(upsample(u001, 2), f_1);
+    u00 = 2*u00;
 
     u0 = apply_system(upsample(u00, 2), f_0)  + apply_system(upsample(u01,2), f_1);
+    u0 = 2*u0;
 
     x_hat = apply_system(upsample(u0, 2), f_0)  + apply_system(upsample(u1,2), f_1);
+    x_hat = 2*x_hat;
 
 
 end
@@ -109,11 +125,6 @@ function x = data_2_band_pass(len, bit_depth)
     x_i = 1344 * cos(0.06*pi*n) + 864*cos(0.18*pi*n) + 8543 * cos(0.38*pi*n) - 43 * cos (0.8*pi*n);
     x_q = 1344 * sin(0.06*pi*n) + 864 * sin(0.18*pi*n) + 8543 * sin(0.38*pi*n) - 43 * sin (0.8*pi*n);
     x = x_i + x_q * 1j;
-end
-
-function res = mse(x, x_hat)
-    error = x - x_hat;
-    res = sqrt(sum((abs(error).^2)./(abs(x).^2)))/length(x);
 end
 
 
