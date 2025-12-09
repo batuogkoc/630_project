@@ -1,54 +1,56 @@
-data = readtable("HistoricalData_1765173284756.csv"); %nasdaq last year aapl data
+data = readtable("HistoricalData_1765173284756.csv"); 
+
 closing = str2double(erase(data.Close_Last, "$"));
 
 
+returns = (closing(2:end) - closing(1:end-1)) ./ closing(1:end-1);
+vol_window = 10;
+volatility = rolling_volatility(returns, vol_window);
 
-returns = (closing(2:end) - closing(1:end-1))./closing(1:end-1);
+dt = 1; 
+F = [1, 1;
+     0, 1];
 
-volatility = rolling_volatility(returns, 5);
-% hold on
-% plot(returns)
-% plot(volatility)
-% hold off
+H = [1, 0];
 
-Ts = -1;
-A = 1;
-B = 1;
-C = 1;
-D = 0;
-sys = ss(A,[B B],C,D,Ts,'InputName',{'u' 'w'},'OutputName','y'); 
+Q = [0.0001, 0; 
+     0,      0.0001]; 
 
-Q = 0.0001;
-R = 0.01;
-[kalmf,L,~,Mx,Z] = kalman(sys,Q,R);
+R = 0.05;     
 
-sys.InputName = {'u','w'};
-sys.OutputName = {'yt'};
-vIn = sumblk('y=yt+v');
+N = length(closing);
+x_est = zeros(2, N);      
+P_cov = eye(2) * 1;       
+x_est(:, 1) = [closing(1); 0]; 
 
-kalmf.InputName = {'u','y'};
-kalmf.OutputName = 'ye';
-
-SimModel = connect(sys,vIn,kalmf,{'u','w','v'},{'yt','ye'});
-
-u = volatility;
-t = 1:length(u);
-rng(10,'twister');
-w = sqrt(Q)*randn(length(t),1);
-v = sqrt(R)*randn(length(t),1);
-out = lsim(SimModel,[u,w,v]);
-size(out)
+for t = 2:N
+    x_pred = F * x_est(:, t-1);
+    P_pred = F * P_cov * F' + Q;
+    
+    z = closing(t);            
+    y_residual = z - H * x_pred; 
+    
+    S = H * P_pred * H' + R;
+    K = P_pred * H' / S;      
+    
+    x_est(:, t) = x_pred + K * y_residual;
+    P_cov = (eye(2) - K * H) * P_pred;
+end
 
 hold on
-plot(closing, "DisplayName", "actual")
-plot(out(:,1) + closing(1), "DisplayName", "true")
-plot(out(:,2) + closing(1), "DisplayName", "filtered")
-legend
+plot(closing, 'DisplayName', 'Actual Price Data');
+plot(x_est(1, :), 'DisplayName', 'Kalman Estimate (Price)');
+
+legend;
+grid on;
 hold off
+
+disp(tools.mean_squared_error(closing.', x_est(1, :)))
+
+
 function ret = rolling_volatility(x, window_len)
     N = length(x) - window_len + 1;
-
-    ret = zeros([N,1])
+    ret = zeros(N,1); 
     for i = 1:N
         ret(i) = std(x(i:i+window_len-1));
     end
